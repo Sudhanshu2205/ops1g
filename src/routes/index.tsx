@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useApp, computePropertyMetrics } from "@/lib/store";
-import { KpiCard } from "@/components/atoms";
+import { KpiCard, Card, Stat, SignalChip } from "@/components/atoms";
 import { format } from "date-fns";
 import { AlertTriangle, ArrowUpRight, CalendarPlus, Flame, Building2, Zap, Sun, TrendingUp, Sparkles, IndianRupee } from "lucide-react";
 import { useMemo } from "react";
@@ -257,48 +257,7 @@ function DashboardPage() {
   );
 }
 
-function Card({
-  title, icon: Icon, action, accent, children,
-}: {
-  title: string; icon: typeof Flame; action?: React.ReactNode; accent?: boolean; children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border border-border bg-card overflow-hidden">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <div className="flex items-center gap-2">
-          <Icon className={`h-4 w-4 ${accent ? "text-accent" : "text-muted-foreground"}`} />
-          <h2 className="font-display text-sm font-semibold">{title}</h2>
-        </div>
-        {action}
-      </header>
-      <div className="p-3">{children}</div>
-    </section>
-  );
-}
 
-function Stat({ label, value, mono }: { label: string; value: string | number; mono?: boolean }) {
-  return (
-    <div className="rounded-md bg-muted/60 px-2 py-1.5">
-      <div className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</div>
-      <div className={`text-xs font-medium ${mono ? "font-mono" : ""}`}>{value}</div>
-    </div>
-  );
-}
-
-function SignalChip({ signal }: { signal: ReturnType<typeof computePropertyMetrics>[number]["signal"] }) {
-  const map = {
-    "high-demand-low-conv": { label: "Pricing issue", cls: "bg-destructive/10 text-destructive border-destructive/30" },
-    "low-demand-high-vacancy": { label: "Push marketing", cls: "bg-warning/15 text-warning-foreground border-warning/30" },
-    "high-conv-low-supply": { label: "Expand", cls: "bg-success/10 text-success border-success/30" },
-    "balanced": { label: "Balanced", cls: "bg-muted text-muted-foreground border-border" },
-  } as const;
-  const cfg = map[signal];
-  return (
-    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${cfg.cls}`}>
-      {cfg.label}
-    </span>
-  );
-}
 
 function sameDay(a: number, b: number) {
   const da = new Date(a), db = new Date(b);

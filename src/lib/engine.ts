@@ -69,8 +69,8 @@ export function liveConfidence(lead: Lead, tours: Tour[], now: number): number {
   else if (days <= 3) s += 6;
   else if (days >= 14) s -= 3;
 
-  if (tours.some((t) => t.leadId === lead.id && t.status === "completed")) s += 8;
-  if (tours.some((t) => t.leadId === lead.id && t.decision === "booked")) s = 100;
+  if (tours.some((tour) => tour.leadId === lead.id && tour.status === "completed")) s += 8;
+  if (tours.some((tour) => tour.leadId === lead.id && tour.decision === "booked")) s = 100;
   if (lead.stage === "dropped") s = Math.min(s, 15);
   if (lead.stage === "booked") s = 100;
 
@@ -113,11 +113,11 @@ export function buildDoNextQueue(
 
   // 1. post-tour pending — highest priority
   tours
-    .filter((t) => t.status === "completed" && !t.postTour.filledAt)
-    .forEach((t) => {
-      const lead = leads.find((l) => l.id === t.leadId);
+    .filter((tour) => tour.status === "completed" && !tour.postTour.filledAt)
+    .forEach((tour) => {
+      const lead = leads.find((lead) => lead.id === tour.leadId);
       if (!lead || !byLead(lead)) return;
-      const hrs = (now - +new Date(t.scheduledAt)) / 36e5;
+      const hrs = (now - +new Date(tour.scheduledAt)) / 36e5;
       actions.push({
         leadId: lead.id,
         reason: `Post-tour form pending · ${Math.max(1, Math.round(hrs))}h overdue`,
@@ -128,27 +128,27 @@ export function buildDoNextQueue(
 
   // 2. overdue follow-ups
   followUps
-    .filter((f) => !f.done && +new Date(f.dueAt) < now)
-    .forEach((f) => {
-      const lead = leads.find((l) => l.id === f.leadId);
+    .filter((followUp) => !followUp.done && +new Date(followUp.dueAt) < now)
+    .forEach((followUp) => {
+      const lead = leads.find((lead) => lead.id === followUp.leadId);
       if (!lead || !byLead(lead)) return;
-      const hrs = (now - +new Date(f.dueAt)) / 36e5;
+      const hrs = (now - +new Date(followUp.dueAt)) / 36e5;
       actions.push({
         leadId: lead.id,
-        reason: `Follow-up overdue · ${f.reason}`,
+        reason: `Follow-up overdue · ${followUp.reason}`,
         kind: "follow-up-overdue",
         score: 800 + Math.min(150, hrs * 2) + intentBoost(lead.intent),
-        dueAt: f.dueAt,
+        dueAt: followUp.dueAt,
       });
     });
 
   // 3. tours scheduled today
   tours
-    .filter((t) => t.status === "scheduled" && sameDay(+new Date(t.scheduledAt), now))
-    .forEach((t) => {
-      const lead = leads.find((l) => l.id === t.leadId);
+    .filter((tour) => tour.status === "scheduled" && sameDay(+new Date(tour.scheduledAt), now))
+    .forEach((tour) => {
+      const lead = leads.find((lead) => lead.id === tour.leadId);
       if (!lead || !byLead(lead)) return;
-      const minsToTour = (+new Date(t.scheduledAt) - now) / 60_000;
+      const minsToTour = (+new Date(tour.scheduledAt) - now) / 60_000;
       actions.push({
         leadId: lead.id,
         reason: minsToTour > 0
@@ -156,45 +156,45 @@ export function buildDoNextQueue(
           : `Tour was ${formatRel(-minsToTour)} ago — confirm`,
         kind: "tour-today",
         score: 700 + intentBoost(lead.intent) - Math.abs(minsToTour) / 30,
-        dueAt: t.scheduledAt,
+        dueAt: tour.scheduledAt,
       });
     });
 
   // 4. follow-ups due today
   followUps
-    .filter((f) => !f.done && sameDay(+new Date(f.dueAt), now) && +new Date(f.dueAt) >= now)
-    .forEach((f) => {
-      const lead = leads.find((l) => l.id === f.leadId);
+    .filter((followUp) => !followUp.done && sameDay(+new Date(followUp.dueAt), now) && +new Date(followUp.dueAt) >= now)
+    .forEach((followUp) => {
+      const lead = leads.find((lead) => lead.id === followUp.leadId);
       if (!lead || !byLead(lead)) return;
       actions.push({
         leadId: lead.id,
-        reason: `Follow-up today · ${f.reason}`,
+        reason: `Follow-up today · ${followUp.reason}`,
         kind: "follow-up-today",
         score: 500 + intentBoost(lead.intent),
-        dueAt: f.dueAt,
+        dueAt: followUp.dueAt,
       });
     });
 
   // 5. leads without any follow-up scheduled (and not closed)
   leads
-    .filter((l) => byLead(l) && !l.nextFollowUpAt && l.stage !== "booked" && l.stage !== "dropped")
-    .forEach((l) => {
+    .filter((lead) => byLead(lead) && !lead.nextFollowUpAt && lead.stage !== "booked" && lead.stage !== "dropped")
+    .forEach((lead) => {
       actions.push({
-        leadId: l.id,
+        leadId: lead.id,
         reason: `No follow-up set · SLA breach`,
         kind: "no-follow-up",
-        score: 600 + intentBoost(l.intent),
+        score: 600 + intentBoost(lead.intent),
       });
     });
 
   // 6. brand-new leads waiting for first response
   leads
-    .filter((l) => byLead(l) && l.stage === "new")
-    .forEach((l) => {
-      const ageMin = (now - +new Date(l.createdAt)) / 60_000;
+    .filter((lead) => byLead(lead) && lead.stage === "new")
+    .forEach((lead) => {
+      const ageMin = (now - +new Date(lead.createdAt)) / 60_000;
       if (ageMin > SLA.firstResponseMins) {
         actions.push({
-          leadId: l.id,
+          leadId: lead.id,
           reason: `First response overdue · created ${formatRel(ageMin)} ago`,
           kind: "first-response",
           score: 900 + Math.min(100, ageMin / 5),
@@ -206,8 +206,8 @@ export function buildDoNextQueue(
   const seen = new Set<string>();
   return actions
     .sort((a, b) => b.score - a.score)
-    .filter((a) => {
-      const k = `${a.leadId}:${a.kind}`;
+    .filter((action) => {
+      const k = `${action.leadId}:${action.kind}`;
       if (seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -253,13 +253,13 @@ export function computeTcmPerformance(
   followUps: FollowUp[],
   now: number,
 ): TcmPerformance {
-  const myLeads = leads.filter((l) => l.assignedTcmId === tcmId);
-  const myTours = tours.filter((t) => t.tcmId === tcmId);
-  const toursDone = myTours.filter((t) => t.status === "completed").length;
-  const bookings = myTours.filter((t) => t.decision === "booked").length;
+  const myLeads = leads.filter((lead) => lead.assignedTcmId === tcmId);
+  const myTours = tours.filter((tour) => tour.tcmId === tcmId);
+  const toursDone = myTours.filter((tour) => tour.status === "completed").length;
+  const bookings = myTours.filter((tour) => tour.decision === "booked").length;
   const conversion = toursDone > 0 ? Math.round((bookings / toursDone) * 100) : 0;
-  const pendingPostTour = myTours.filter((t) => t.status === "completed" && !t.postTour.filledAt).length;
-  const overdueFollowUps = followUps.filter((f) => f.tcmId === tcmId && !f.done && +new Date(f.dueAt) < now).length;
+  const pendingPostTour = myTours.filter((tour) => tour.status === "completed" && !tour.postTour.filledAt).length;
+  const overdueFollowUps = followUps.filter((followUp) => followUp.tcmId === tcmId && !followUp.done && +new Date(followUp.dueAt) < now).length;
   const total = myLeads.length || 1;
   const discipline = Math.max(0, Math.min(100,
     100 - (pendingPostTour / total) * 100 - (overdueFollowUps / total) * 60,

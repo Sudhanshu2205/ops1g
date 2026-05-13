@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type {
   ActivityLog, FollowUp, Lead, Property, Role, TCM, Tour,
   PostTourUpdate, ClientDecision, LeadStage, Intent,
@@ -65,7 +66,9 @@ interface AppState {
   closeDeal: (input: { leadId: string; tourId: string; propertyId: string; tcmId: string; amount: number }) => void;
 }
 
-export const useApp = create<AppState>((set, get) => ({
+export const useApp = create<AppState>()(
+  persist(
+    (set, get) => ({
   role: "flow-ops",
   currentTcmId: "tcm-1",
   setRole: (r) => set({ role: r }),
@@ -85,9 +88,9 @@ export const useApp = create<AppState>((set, get) => ({
   bookings: [],
 
   setLeadStage: (leadId, stage) => {
-    set((s) => ({
-      leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, stage, updatedAt: new Date().toISOString() } : l,
+    set((state) => ({
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? { ...lead, stage, updatedAt: new Date().toISOString() } : lead,
       ),
     }));
     pushActivity(set, get, {
@@ -97,43 +100,43 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   setLeadIntent: (leadId, intent) => {
-    set((s) => ({
-      leads: s.leads.map((l) => (l.id === leadId ? { ...l, intent } : l)),
+    set((state) => ({
+      leads: state.leads.map((lead) => (lead.id === leadId ? { ...lead, intent } : lead)),
     }));
   },
 
   setLeadFollowUp: (leadId, dueAt, priority, reason = "Manual follow-up") => {
-    set((s) => ({
-      leads: s.leads.map((l) => (l.id === leadId ? { ...l, nextFollowUpAt: dueAt } : l)),
+    set((state) => ({
+      leads: state.leads.map((lead) => (lead.id === leadId ? { ...lead, nextFollowUpAt: dueAt } : lead)),
     }));
-    const lead = get().leads.find((l) => l.id === leadId);
+    const lead = get().leads.find((lead) => lead.id === leadId);
     if (!lead) return;
     const f: FollowUp = {
       id: uid("f"), leadId, tcmId: lead.assignedTcmId,
       dueAt, priority, reason, done: false,
     };
-    set((s) => ({ followUps: [f, ...s.followUps] }));
+    set((state) => ({ followUps: [f, ...state.followUps] }));
     pushActivity(set, get, { kind: "follow_up_set", actor: get().role, leadId, text: `Follow-up set: ${reason}` });
   },
 
   addLeadTag: (leadId, tag) => {
-    set((s) => ({
-      leads: s.leads.map((l) =>
-        l.id === leadId && !l.tags.includes(tag) ? { ...l, tags: [...l.tags, tag] } : l,
+    set((state) => ({
+      leads: state.leads.map((lead) =>
+        lead.id === leadId && !lead.tags.includes(tag) ? { ...lead, tags: [...lead.tags, tag] } : lead,
       ),
     }));
   },
 
   removeLeadTag: (leadId, tag) => {
-    set((s) => ({
-      leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, tags: l.tags.filter((t) => t !== tag) } : l,
+    set((state) => ({
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? { ...lead, tags: lead.tags.filter((tour) => t !== tag) } : lead,
       ),
     }));
   },
 
   scheduleTour: ({ leadId, propertyId, tcmId, scheduledAt }) => {
-    const lead = get().leads.find((l) => l.id === leadId)!;
+    const lead = get().leads.find((lead) => lead.id === leadId)!;
     const tour: Tour = {
       id: uid("t"), leadId, propertyId, tcmId, scheduledAt,
       status: "scheduled", decision: null,
@@ -143,10 +146,10 @@ export const useApp = create<AppState>((set, get) => ({
       },
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     };
-    set((s) => ({
-      tours: [tour, ...s.tours],
-      leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, stage: "tour-scheduled", updatedAt: new Date().toISOString() } : l,
+    set((state) => ({
+      tours: [tour, ...state.tours],
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? { ...lead, stage: "tour-scheduled", updatedAt: new Date().toISOString() } : lead,
       ),
     }));
     pushActivity(set, get, {
@@ -176,78 +179,78 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   cancelTour: (tourId) => {
-    const t = get().tours.find((x) => x.id === tourId);
+    const t = get().tours.find((item) => item.id === tourId);
     if (!t) return;
-    set((s) => ({
-      tours: s.tours.map((x) =>
-        x.id === tourId ? { ...x, status: "cancelled", updatedAt: new Date().toISOString() } : x,
+    set((state) => ({
+      tours: state.tours.map((item) =>
+        item.id === tourId ? { ...item, status: "cancelled", updatedAt: new Date().toISOString() } : item,
       ),
     }));
-    pushActivity(set, get, { kind: "tour_cancelled", actor: get().role, leadId: t.leadId, tourId, text: "Tour cancelled" });
+    pushActivity(set, get, { kind: "tour_cancelled", actor: get().role, leadId: tour.leadId, tourId, text: "Tour cancelled" });
   },
 
   rescheduleTour: (tourId, scheduledAt) => {
-    set((s) => ({
-      tours: s.tours.map((x) =>
-        x.id === tourId ? { ...x, scheduledAt, updatedAt: new Date().toISOString() } : x,
+    set((state) => ({
+      tours: state.tours.map((item) =>
+        item.id === tourId ? { ...item, scheduledAt, updatedAt: new Date().toISOString() } : item,
       ),
     }));
-    const t = get().tours.find((x) => x.id === tourId);
-    if (t) pushActivity(set, get, { kind: "tour_scheduled", actor: get().role, leadId: t.leadId, tourId, text: "Tour rescheduled" });
+    const t = get().tours.find((item) => item.id === tourId);
+    if (t) pushActivity(set, get, { kind: "tour_scheduled", actor: get().role, leadId: tour.leadId, tourId, text: "Tour rescheduled" });
   },
 
   completeTour: (tourId) => {
-    const t = get().tours.find((x) => x.id === tourId);
+    const t = get().tours.find((item) => item.id === tourId);
     if (!t) return;
-    set((s) => ({
-      tours: s.tours.map((x) =>
-        x.id === tourId ? { ...x, status: "completed", updatedAt: new Date().toISOString() } : x,
+    set((state) => ({
+      tours: state.tours.map((item) =>
+        item.id === tourId ? { ...item, status: "completed", updatedAt: new Date().toISOString() } : item,
       ),
-      leads: s.leads.map((l) =>
-        l.id === t.leadId ? { ...l, stage: "tour-done", updatedAt: new Date().toISOString() } : l,
+      leads: state.leads.map((lead) =>
+        lead.id === tour.leadId ? { ...lead, stage: "tour-done", updatedAt: new Date().toISOString() } : lead,
       ),
     }));
-    pushActivity(set, get, { kind: "tour_completed", actor: t.tcmId, leadId: t.leadId, tourId, text: "Tour marked completed" });
+    pushActivity(set, get, { kind: "tour_completed", actor: tour.tcmId, leadId: tour.leadId, tourId, text: "Tour marked completed" });
     // Bridge → owner: every completed tour bumps the room's view counter
-    const prop = get().properties.find((p) => p.id === t.propertyId);
+    const prop = get().properties.find((property) => property.id === tour.propertyId);
     if (prop) pushTourViewToOwner(prop.name);
-    const lead = get().leads.find((l) => l.id === t.leadId);
+    const lead = get().leads.find((lead) => lead.id === tour.leadId);
     emitConnector({
       kind: "tour.completed",
-      actorRole: "tcm", actorId: t.tcmId,
-      leadId: t.leadId, tourId, propertyId: t.propertyId,
-      text: `${personName(t.tcmId, "TCM")} completed tour with ${lead?.name ?? "lead"}`,
+      actorRole: "tcm", actorId: tour.tcmId,
+      leadId: tour.leadId, tourId, propertyId: tour.propertyId,
+      text: `${personName(tour.tcmId, "TCM")} completed tour with ${lead?.name ?? "lead"}`,
     });
   },
 
   setDecision: (tourId, decision) => {
-    const t = get().tours.find((x) => x.id === tourId);
+    const t = get().tours.find((item) => item.id === tourId);
     if (!t) return;
-    set((s) => ({
-      tours: s.tours.map((x) => (x.id === tourId ? { ...x, decision, updatedAt: new Date().toISOString() } : x)),
-      leads: s.leads.map((l) =>
-        l.id === t.leadId
+    set((state) => ({
+      tours: state.tours.map((item) => (item.id === tourId ? { ...item, decision, updatedAt: new Date().toISOString() } : item)),
+      leads: state.leads.map((lead) =>
+        lead.id === tour.leadId
           ? {
-              ...l,
+              ...lead,
               stage:
                 decision === "booked" ? "booked" :
                 decision === "dropped" ? "dropped" : "negotiation",
               updatedAt: new Date().toISOString(),
             }
-          : l,
+          : lead,
       ),
     }));
     pushActivity(set, get, {
-      kind: "decision_logged", actor: t.tcmId, leadId: t.leadId, tourId,
+      kind: "decision_logged", actor: tour.tcmId, leadId: tour.leadId, tourId,
       text: `Decision: ${decision ?? "—"}`,
     });
   },
 
   updatePostTour: (tourId, patch) => {
-    const t = get().tours.find((x) => x.id === tourId);
+    const t = get().tours.find((item) => item.id === tourId);
     if (!t) return;
-    const prevObjection = t.postTour.objection;
-    const next: PostTourUpdate = { ...t.postTour, ...patch };
+    const prevObjection = tour.postTour.objection;
+    const next: PostTourUpdate = { ...tour.postTour, ...patch };
     const complete =
       next.outcome !== null &&
       next.confidence > 0 &&
@@ -255,45 +258,45 @@ export const useApp = create<AppState>((set, get) => ({
       next.nextFollowUpAt !== null;
     if (complete && !next.filledAt) {
       next.filledAt = new Date().toISOString();
-      pushActivity(set, get, { kind: "post_tour_filled", actor: t.tcmId, leadId: t.leadId, tourId, text: "Post-tour form completed" });
-      const lead = get().leads.find((l) => l.id === t.leadId);
+      pushActivity(set, get, { kind: "post_tour_filled", actor: tour.tcmId, leadId: tour.leadId, tourId, text: "Post-tour form completed" });
+      const lead = get().leads.find((lead) => lead.id === tour.leadId);
       emitConnector({
         kind: "post_tour.filled",
-        actorRole: "tcm", actorId: t.tcmId,
-        leadId: t.leadId, tourId, propertyId: t.propertyId,
-        text: `${personName(t.tcmId, "TCM")} closed post-tour loop · ${lead?.name ?? ""}`.trim(),
+        actorRole: "tcm", actorId: tour.tcmId,
+        leadId: tour.leadId, tourId, propertyId: tour.propertyId,
+        text: `${personName(tour.tcmId, "TCM")} closed post-tour loop · ${lead?.name ?? ""}`.trim(),
       });
     }
-    set((s) => ({
-      tours: s.tours.map((x) => (x.id === tourId ? { ...x, postTour: next, updatedAt: new Date().toISOString() } : x)),
-      leads: s.leads.map((l) =>
-        l.id === t.leadId
+    set((state) => ({
+      tours: state.tours.map((item) => (item.id === tourId ? { ...item, postTour: next, updatedAt: new Date().toISOString() } : item)),
+      leads: state.leads.map((lead) =>
+        lead.id === tour.leadId
           ? {
-              ...l,
-              confidence: next.confidence > 0 ? next.confidence : l.confidence,
-              nextFollowUpAt: next.nextFollowUpAt ?? l.nextFollowUpAt,
+              ...lead,
+              confidence: next.confidence > 0 ? next.confidence : lead.confidence,
+              nextFollowUpAt: next.nextFollowUpAt ?? lead.nextFollowUpAt,
             }
-          : l,
+          : lead,
       ),
     }));
     if (next.nextFollowUpAt) {
-      const exists = get().followUps.find((f) => f.tourId === tourId && !f.done);
+      const exists = get().followUps.find((followUp) => followUp.tourId === tourId && !followUp.done);
       if (!exists) {
         const f: FollowUp = {
-          id: uid("f"), tourId, leadId: t.leadId, tcmId: t.tcmId,
+          id: uid("f"), tourId, leadId: tour.leadId, tcmId: tour.tcmId,
           dueAt: next.nextFollowUpAt,
           priority: next.confidence >= 75 ? "high" : next.confidence >= 50 ? "medium" : "low",
           reason: "Post-tour scheduled follow-up",
           done: false,
         };
-        set((s) => ({ followUps: [f, ...s.followUps] }));
+        set((state) => ({ followUps: [f, ...state.followUps] }));
       }
     }
     // Bridge → Owner: every NEW objection logged here pushes a demand-signal
     // record into the Owner store so the owner's bars reflect real team activity.
     if (next.objection && next.objection !== prevObjection) {
-      const prop = get().properties.find((p) => p.id === t.propertyId);
-      const tcm = get().tcms.find((m) => m.id === t.tcmId);
+      const prop = get().properties.find((property) => property.id === tour.propertyId);
+      const tcm = get().tcms.find((m) => m.id === tour.tcmId);
       if (prop) {
         pushObjectionToOwner({
           propertyKey: prop.name,
@@ -318,30 +321,30 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   completeFollowUp: (followUpId) => {
-    const f = get().followUps.find((x) => x.id === followUpId);
+    const f = get().followUps.find((item) => item.id === followUpId);
     if (!f) return;
-    set((s) => ({
-      followUps: s.followUps.map((x) => (x.id === followUpId ? { ...x, done: true } : x)),
-      leads: s.leads.map((l) => (l.id === f.leadId ? { ...l, nextFollowUpAt: null } : l)),
+    set((state) => ({
+      followUps: state.followUps.map((item) => (item.id === followUpId ? { ...item, done: true } : item)),
+      leads: state.leads.map((lead) => (lead.id === followUp.leadId ? { ...lead, nextFollowUpAt: null } : lead)),
     }));
-    pushActivity(set, get, { kind: "follow_up_done", actor: f.tcmId, leadId: f.leadId, tourId: f.tourId, text: `Follow-up done: ${f.reason}` });
+    pushActivity(set, get, { kind: "follow_up_done", actor: followUp.tcmId, leadId: followUp.leadId, tourId: followUp.tourId, text: `Follow-up done: ${followUp.reason}` });
   },
 
   addFollowUp: (input) => {
     const f: FollowUp = { ...input, id: uid("f"), done: false };
-    set((s) => ({ followUps: [f, ...s.followUps] }));
+    set((state) => ({ followUps: [f, ...state.followUps] }));
   },
 
   reassignLead: (leadId, tcmId, reason) => {
-    const tcm = get().tcms.find((t) => t.id === tcmId);
-    set((s) => ({
-      leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, assignedTcmId: tcmId, updatedAt: new Date().toISOString() } : l,
+    const tcm = get().tcms.find((tour) => tour.id === tcmId);
+    set((state) => ({
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? { ...lead, assignedTcmId: tcmId, updatedAt: new Date().toISOString() } : lead,
       ),
     }));
     pushActivity(set, get, { kind: "status_changed", actor: get().role, leadId, text: `Reassigned to ${tcm?.name ?? tcmId} · ${reason}` });
     // auto-handoff
-    const lead = get().leads.find((l) => l.id === leadId);
+    const lead = get().leads.find((lead) => lead.id === leadId);
     if (lead) {
       get().sendHandoff({
         leadId,
@@ -354,7 +357,7 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   autoAssignLead: (leadId) => {
-    const lead = get().leads.find((l) => l.id === leadId);
+    const lead = get().leads.find((lead) => lead.id === leadId);
     if (!lead) return { tcmId: "", reasons: [] };
     const pick = autoAssignFn(lead, get().tcms, get().leads, get().tours);
     get().reassignLead(leadId, pick.tcmId, pick.reasons.join(" · "));
@@ -367,7 +370,7 @@ export const useApp = create<AppState>((set, get) => ({
       id: uid("h"), leadId, ts: new Date().toISOString(),
       from, fromId, to, text, priority, read: false,
     };
-    set((s) => ({ handoffs: [...s.handoffs, msg] }));
+    set((state) => ({ handoffs: [...state.handoffs, msg] }));
     emitConnector({
       kind: "handoff.sent",
       actorRole: from, actorId: fromId, leadId,
@@ -376,8 +379,8 @@ export const useApp = create<AppState>((set, get) => ({
   },
 
   markHandoffsRead: (leadId) => {
-    set((s) => ({
-      handoffs: s.handoffs.map((h) => (h.leadId === leadId ? { ...h, read: true } : h)),
+    set((state) => ({
+      handoffs: state.handoffs.map((h) => (h.leadId === leadId ? { ...h, read: true } : h)),
     }));
   },
 
@@ -388,29 +391,29 @@ export const useApp = create<AppState>((set, get) => ({
       id: uid("s"), leadId, kind, startedAt: new Date().toISOString(),
       currentStep: 0, paused: false,
     };
-    set((s) => ({ sequences: [...s.sequences, seq] }));
+    set((state) => ({ sequences: [...state.sequences, seq] }));
     pushActivity(set, get, { kind: "message_sent", actor: "system", leadId, text: `Sequence started: ${kind}` });
   },
 
   toggleSequencePause: (leadId) => {
-    set((s) => ({
-      sequences: s.sequences.map((seq) =>
+    set((state) => ({
+      sequences: state.sequences.map((seq) =>
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, paused: !seq.paused } : seq,
       ),
     }));
   },
 
   stopSequence: (leadId, reason) => {
-    set((s) => ({
-      sequences: s.sequences.map((seq) =>
+    set((state) => ({
+      sequences: state.sequences.map((seq) =>
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, stoppedReason: reason } : seq,
       ),
     }));
   },
 
   advanceSequenceStep: (leadId) => {
-    set((s) => ({
-      sequences: s.sequences.map((seq) =>
+    set((state) => ({
+      sequences: state.sequences.map((seq) =>
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, currentStep: seq.currentStep + 1 } : seq,
       ),
     }));
@@ -421,20 +424,20 @@ export const useApp = create<AppState>((set, get) => ({
       id: uid("b"), leadId, tourId, propertyId, tcmId, amount,
       ts: new Date().toISOString(),
     };
-    set((s) => ({
-      bookings: [booking, ...s.bookings],
-      properties: s.properties.map((p) =>
-        p.id === propertyId
-          ? { ...p, vacantBeds: Math.max(0, p.vacantBeds - 1), daysSinceLastBooking: 0 }
-          : p,
+    set((state) => ({
+      bookings: [booking, ...state.bookings],
+      properties: state.properties.map((property) =>
+        property.id === propertyId
+          ? { ...property, vacantBeds: Math.max(0, property.vacantBeds - 1), daysSinceLastBooking: 0 }
+          : property,
       ),
-      leads: s.leads.map((l) =>
-        l.id === leadId ? { ...l, stage: "booked", confidence: 100, updatedAt: new Date().toISOString() } : l,
+      leads: state.leads.map((lead) =>
+        lead.id === leadId ? { ...lead, stage: "booked", confidence: 100, updatedAt: new Date().toISOString() } : lead,
       ),
-      tours: s.tours.map((t) =>
-        t.id === tourId ? { ...t, decision: "booked", status: "completed" } : t,
+      tours: state.tours.map((tour) =>
+        tour.id === tourId ? { ...tour, decision: "booked", status: "completed" } : tour,
       ),
-      sequences: s.sequences.map((seq) =>
+      sequences: state.sequences.map((seq) =>
         seq.leadId === leadId && !seq.stoppedReason ? { ...seq, stoppedReason: "Booked" } : seq,
       ),
     }));
@@ -443,8 +446,8 @@ export const useApp = create<AppState>((set, get) => ({
     const sched = get().activities.find(
       (a) => a.kind === "tour_scheduled" && a.leadId === leadId && a.tourId === tourId,
     );
-    const lead = get().leads.find((l) => l.id === leadId);
-    const ownerEvt = get().properties.find((p) => p.id === propertyId);
+    const lead = get().leads.find((lead) => lead.id === leadId);
+    const ownerEvt = get().properties.find((property) => property.id === propertyId);
     emitConnector({
       kind: "booking.closed",
       actorRole: "tcm", actorId: tcmId,
@@ -455,7 +458,7 @@ export const useApp = create<AppState>((set, get) => ({
         : undefined,
     });
   },
-}));
+}), { name: "gharpayy-crm-store" }));
 
 function pushActivity(
   set: (fn: (s: AppState) => Partial<AppState>) => void,
@@ -463,21 +466,21 @@ function pushActivity(
   a: Omit<ActivityLog, "id" | "ts">,
 ) {
   const log: ActivityLog = { id: uid("a"), ts: new Date().toISOString(), ...a };
-  set((s) => ({ activities: [log, ...s.activities] }));
+  set((state) => ({ activities: [log, ...state.activities] }));
 }
 
 /* ============== SELECTORS / DERIVED ============== */
 
 export function getTcm(id: string) {
-  return TCMS.find((t) => t.id === id);
+  return TCMS.find((tour) => tour.id === id);
 }
 
 export function getProperty(id: string, properties: Property[]) {
-  return properties.find((p) => p.id === id);
+  return properties.find((property) => property.id === id);
 }
 
 export function getLead(id: string, leads: Lead[]) {
-  return leads.find((l) => l.id === id);
+  return leads.find((lead) => lead.id === id);
 }
 
 export interface PropertyMetrics {
@@ -497,16 +500,16 @@ export function computePropertyMetrics(
   leads: Lead[],
   tours: Tour[],
 ): PropertyMetrics[] {
-  return properties.map((p) => {
-    const propTours = tours.filter((t) => t.propertyId === p.id);
-    const propLeads = leads.filter((l) => l.preferredArea === p.area);
-    const bookings = propTours.filter((t) => t.decision === "booked").length;
-    const completed = propTours.filter((t) => t.status === "completed").length;
+  return properties.map((property) => {
+    const propTours = tours.filter((tour) => tour.propertyId === property.id);
+    const propLeads = leads.filter((lead) => lead.preferredArea === property.area);
+    const bookings = propTours.filter((tour) => tour.decision === "booked").length;
+    const completed = propTours.filter((tour) => tour.status === "completed").length;
     const conversionPct = completed > 0 ? Math.round((bookings / completed) * 100) : 0;
-    const occupancyPct = Math.round(((p.totalBeds - p.vacantBeds) / p.totalBeds) * 100);
+    const occupancyPct = Math.round(((property.totalBeds - property.vacantBeds) / property.totalBeds) * 100);
     const demandScore = Math.min(
       100,
-      Math.round(propLeads.length * 12 + propTours.length * 8 - p.daysSinceLastBooking * 2),
+      Math.round(propLeads.length * 12 + propTours.length * 8 - property.daysSinceLastBooking * 2),
     );
     const pressureScore = Math.round(
       Math.max(0, Math.min(100, demandScore * 0.6 + (100 - occupancyPct) * 0.4)),
@@ -515,10 +518,10 @@ export function computePropertyMetrics(
     let signal: PropertyMetrics["signal"] = "balanced";
     if (demandScore >= 60 && conversionPct < 25) signal = "high-demand-low-conv";
     else if (demandScore < 30 && occupancyPct < 60) signal = "low-demand-high-vacancy";
-    else if (conversionPct >= 40 && p.vacantBeds <= 3) signal = "high-conv-low-supply";
+    else if (conversionPct >= 40 && property.vacantBeds <= 3) signal = "high-conv-low-supply";
 
     return {
-      property: p, leadCount: propLeads.length, tourCount: propTours.length,
+      property: property, leadCount: propLeads.length, tourCount: propTours.length,
       bookings, conversionPct, occupancyPct, demandScore, pressureScore, signal,
     };
   });
@@ -531,7 +534,7 @@ export function recomputeConfidence(lead: Lead, tours: Tour[]): number {
   if (lead.responseSpeedMins <= 5) score += 5;
   else if (lead.responseSpeedMins > 15) score -= 5;
   // Tour completed?
-  const hasCompleted = tours.some((t) => t.leadId === lead.id && t.status === "completed");
+  const hasCompleted = tours.some((tour) => tour.leadId === lead.id && tour.status === "completed");
   if (hasCompleted) score += 8;
   // Move-in urgency
   const days = (new Date(lead.moveInDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
