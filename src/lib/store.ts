@@ -131,7 +131,7 @@ export const useApp = create<AppState>()(
   removeLeadTag: (leadId, tag) => {
     set((state) => ({
       leads: state.leads.map((lead) =>
-        lead.id === leadId ? { ...lead, tags: lead.tags.filter((tour) => t !== tag) } : lead,
+        lead.id === leadId ? { ...lead, tags: lead.tags.filter((t) => t !== tag) } : lead,
       ),
     }));
   },
@@ -180,8 +180,8 @@ export const useApp = create<AppState>()(
   },
 
   cancelTour: (tourId) => {
-    const t = get().tours.find((item) => item.id === tourId);
-    if (!t) return;
+    const tour = get().tours.find((item) => item.id === tourId);
+    if (!tour) return;
     set((state) => ({
       tours: state.tours.map((item) =>
         item.id === tourId ? { ...item, status: "cancelled", updatedAt: new Date().toISOString() } : item,
@@ -196,13 +196,13 @@ export const useApp = create<AppState>()(
         item.id === tourId ? { ...item, scheduledAt, updatedAt: new Date().toISOString() } : item,
       ),
     }));
-    const t = get().tours.find((item) => item.id === tourId);
-    if (t) pushActivity(set, get, { kind: "tour_scheduled", actor: get().role, leadId: tour.leadId, tourId, text: "Tour rescheduled" });
+    const tour = get().tours.find((item) => item.id === tourId);
+    if (tour) pushActivity(set, get, { kind: "tour_scheduled", actor: get().role, leadId: tour.leadId, tourId, text: "Tour rescheduled" });
   },
 
   completeTour: (tourId) => {
-    const t = get().tours.find((item) => item.id === tourId);
-    if (!t) return;
+    const tour = get().tours.find((item) => item.id === tourId);
+    if (!tour) return;
     set((state) => ({
       tours: state.tours.map((item) =>
         item.id === tourId ? { ...item, status: "completed", updatedAt: new Date().toISOString() } : item,
@@ -225,8 +225,8 @@ export const useApp = create<AppState>()(
   },
 
   setDecision: (tourId, decision) => {
-    const t = get().tours.find((item) => item.id === tourId);
-    if (!t) return;
+    const tour = get().tours.find((item) => item.id === tourId);
+    if (!tour) return;
     set((state) => ({
       tours: state.tours.map((item) => (item.id === tourId ? { ...item, decision, updatedAt: new Date().toISOString() } : item)),
       leads: state.leads.map((lead) =>
@@ -248,8 +248,8 @@ export const useApp = create<AppState>()(
   },
 
   updatePostTour: (tourId, patch) => {
-    const t = get().tours.find((item) => item.id === tourId);
-    if (!t) return;
+    const tour = get().tours.find((item) => item.id === tourId);
+    if (!tour) return;
     const prevObjection = tour.postTour.objection;
     const next: PostTourUpdate = { ...tour.postTour, ...patch };
     const complete =
@@ -322,8 +322,8 @@ export const useApp = create<AppState>()(
   },
 
   completeFollowUp: (followUpId) => {
-    const f = get().followUps.find((item) => item.id === followUpId);
-    if (!f) return;
+    const followUp = get().followUps.find((item) => item.id === followUpId);
+    if (!followUp) return;
     set((state) => ({
       followUps: state.followUps.map((item) => (item.id === followUpId ? { ...item, done: true } : item)),
       leads: state.leads.map((lead) => (lead.id === followUp.leadId ? { ...lead, nextFollowUpAt: null } : lead)),
