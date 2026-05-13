@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { supabase } from "./supabase";
 import type {
   ActivityLog, FollowUp, Lead, Property, Role, TCM, Tour,
   PostTourUpdate, ClientDecision, LeadStage, Intent,
@@ -548,3 +549,58 @@ export function intentForConfidence(c: number): Intent {
   if (c >= 50) return "warm";
   return "cold";
 }
+
+// --- SUPABASE SYNC LOGIC ---
+const STATE_ID = '00000000-0000-0000-0000-000000000001';
+let isHydrating = false;
+
+export async function hydrateFromSupabase() {
+  isHydrating = true;
+  try {
+    const { data, error } = await supabase
+      .from('crm_state')
+      .select('state_data')
+      .eq('id', STATE_ID)
+      .single();
+
+    if (error) {
+      console.error("Supabase fetch error:", error);
+      return;
+    }
+
+    if (data && data.state_data && Object.keys(data.state_data).length > 0) {
+      useApp.setState(data.state_data);
+      console.log("Hydrated state from Supabase");
+    }
+  } catch (err) {
+    console.error("Failed to hydrate from Supabase", err);
+  } finally {
+    isHydrating = false;
+  }
+}
+
+// Execute hydration on load
+if (typeof window !== "undefined") {
+  hydrateFromSupabase();
+}
+
+// Subscribe to local state changes and push to Supabase
+useApp.subscribe((state) => {
+  if (isHydrating) return;
+
+  clearTimeout((window as any)._supabaseSyncTimeout);
+  (window as any)._supabaseSyncTimeout = setTimeout(async () => {
+    try {
+      const { error } = await supabase
+        .from('crm_state')
+        .update({ state_data: state, updated_at: new Date().toISOString() })
+        .eq('id', STATE_ID);
+
+      if (error) {
+        console.error("Supabase sync error:", error);
+      }
+    } catch (err) {
+      console.error("Failed to sync to Supabase", err);
+    }
+  }, 1000);
+});
